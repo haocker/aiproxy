@@ -1,0 +1,13 @@
+{
+  "proxy_rules": {
+    "example.local": "example.com",
+    "api.local": "api.example.com"
+  },
+  "https": {
+    "enabled": false,
+    "cert_path": "",
+    "key_path": ""
+  },
+  "port": 8080,
+  "log_level": "INFO"
+}
