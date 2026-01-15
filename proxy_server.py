@@ -13,6 +13,7 @@ from urllib3.util.retry import Retry
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
 import ssl
+from cert_manager import CertManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,9 +50,10 @@ class ProxyServer:
         return {
             "proxy_rules": {},
             "https": {
-                "enabled": False,
+                "enabled": True,
                 "cert_path": "",
-                "key_path": ""
+                "key_path": "",
+                "auto_generate": True
             },
             "port": 8080,
             "log_level": "INFO"
@@ -244,17 +246,38 @@ class ProxyServer:
         
         https_config = self.config.get('https', {})
         
-        if https_config.get('enabled'):
+        # HTTPS 默认启用，自动生成证书
+        if https_config.get('enabled', True):
             cert_path = https_config.get('cert_path')
             key_path = https_config.get('key_path')
-            if cert_path and key_path:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                ssl_context.load_cert_chain(cert_path, key_path)
-                self.app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
+            auto_generate = https_config.get('auto_generate', True)
+            
+            # 如果证书路径为空且启用自动生成，使用证书管理器
+            if (not cert_path or not key_path) and auto_generate:
+                cert_manager = CertManager()
+                cert_path, key_path = cert_manager.get_cert_paths()
+                
+                # 更新配置
+                https_config['cert_path'] = cert_path
+                https_config['key_path'] = key_path
+                self.config['https'] = https_config
+                self.save_config(self.config)
+            
+            if cert_path and key_path and Path(cert_path).exists() and Path(key_path).exists():
+                try:
+                    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                    ssl_context.load_cert_chain(cert_path, key_path)
+                    logger.info(f"以 HTTPS 模式运行，监听 {host}:{port}")
+                    logger.info(f"证书: {cert_path}")
+                    self.app.run(host=host, port=port, debug=debug, ssl_context=ssl_context)
+                except Exception as e:
+                    logger.error(f"HTTPS 配置失败: {e}，降级为 HTTP 模式")
+                    self.app.run(host=host, port=port, debug=debug)
             else:
-                logger.warning("HTTPS enabled but cert/key not found, running HTTP")
+                logger.warning("HTTPS 启用但证书文件不存在，运行 HTTP 模式")
                 self.app.run(host=host, port=port, debug=debug)
         else:
+            logger.info(f"以 HTTP 模式运行，监听 {host}:{port}")
             self.app.run(host=host, port=port, debug=debug)
 
 

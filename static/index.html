@@ -397,24 +397,9 @@
                     </select>
                 </div>
                 
-                <div class="form-group">
-                    <label>启用 HTTPS</label>
-                    <label class="switch">
-                        <input type="checkbox" id="httpsEnabled" />
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                
-                <div id="httpsSettings" style="display: none;">
-                    <div class="form-group">
-                        <label for="certPath">证书文件路径</label>
-                        <input type="text" id="certPath" placeholder="/path/to/cert.pem" />
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="keyPath">密钥文件路径</label>
-                        <input type="text" id="keyPath" placeholder="/path/to/key.pem" />
-                    </div>
+                <div id="httpsStatus" style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                    <h4 style="color: #0c5460; margin-bottom: 10px;">🔒 HTTPS 状态</h4>
+                    <p id="httpsStatusText" style="color: #0c5460; margin: 0;"></p>
                 </div>
                 
                 <button onclick="saveSettings()" class="btn-success">💾 保存设置</button>
@@ -443,11 +428,6 @@
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
             loadConfig();
-            
-            document.getElementById('httpsEnabled').addEventListener('change', function() {
-                document.getElementById('httpsSettings').style.display = 
-                    this.checked ? 'block' : 'none';
-            });
         });
         
         // 加载配置
@@ -459,16 +439,24 @@
                 document.getElementById('portInput').value = config.port || 8080;
                 document.getElementById('logLevel').value = config.log_level || 'INFO';
                 
+                // 显示 HTTPS 状态
                 const httpsConfig = config.https || {};
-                document.getElementById('httpsEnabled').checked = httpsConfig.enabled || false;
-                document.getElementById('certPath').value = httpsConfig.cert_path || '';
-                document.getElementById('keyPath').value = httpsConfig.key_path || '';
-                document.getElementById('httpsSettings').style.display = 
-                    httpsConfig.enabled ? 'block' : 'none';
+                const certPath = httpsConfig.cert_path || '';
+                const keyPath = httpsConfig.key_path || '';
+                
+                let statusText = '✅ 已启用 HTTPS (自动配置)';
+                if (certPath && keyPath) {
+                    statusText += `<br/>📁 证书: ${escapeHtml(certPath)}<br/>🔑 密钥: ${escapeHtml(keyPath)}`;
+                } else {
+                    statusText = '⚠️ HTTPS 证书生成中...';
+                }
+                
+                document.getElementById('httpsStatusText').innerHTML = statusText;
                 
                 loadRules();
             } catch (error) {
                 showAlert('加载配置失败: ' + error.message, 'error');
+                document.getElementById('httpsStatusText').innerHTML = '⚠️ 无法加载配置';
             }
         }
         
@@ -558,9 +546,6 @@
         async function saveSettings() {
             const port = parseInt(document.getElementById('portInput').value) || 8080;
             const logLevel = document.getElementById('logLevel').value;
-            const httpsEnabled = document.getElementById('httpsEnabled').checked;
-            const certPath = document.getElementById('certPath').value;
-            const keyPath = document.getElementById('keyPath').value;
             
             // 获取当前规则
             const rulesResponse = await fetch(`${API_BASE}/rules`);
@@ -569,9 +554,10 @@
             const config = {
                 proxy_rules: rules,
                 https: {
-                    enabled: httpsEnabled,
-                    cert_path: certPath,
-                    key_path: keyPath
+                    enabled: true,
+                    cert_path: "",
+                    key_path: "",
+                    auto_generate: true
                 },
                 port: port,
                 log_level: logLevel

@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 from proxy_server import ProxyServer
+from cert_manager import CertManager
 
 # Configure logging
 logging.basicConfig(
@@ -36,6 +37,24 @@ class AppAPI:
     def get_config(self):
         """Get current configuration"""
         return self.proxy_server.config
+    
+    def get_https_status(self):
+        """Get HTTPS certificate status"""
+        https_config = self.proxy_server.config.get('https', {})
+        cert_path = https_config.get('cert_path', '')
+        key_path = https_config.get('key_path', '')
+        
+        cert_exists = Path(cert_path).exists() if cert_path else False
+        key_exists = Path(key_path).exists() if key_path else False
+        
+        return {
+            "enabled": https_config.get('enabled', True),
+            "cert_exists": cert_exists,
+            "key_exists": key_exists,
+            "cert_path": cert_path,
+            "key_path": key_path,
+            "auto_generate": https_config.get('auto_generate', True)
+        }
     
     def update_config(self, config):
         """Update configuration"""
@@ -93,6 +112,13 @@ def create_app():
     # Create static directory if it doesn't exist
     static_dir.mkdir(exist_ok=True)
     
+    # Initialize certificate manager and ensure certificates exist
+    logger.info("初始化证书管理器...")
+    cert_manager = CertManager()
+    cert_path, key_path = cert_manager.get_cert_paths()
+    logger.info(f"证书路径: {cert_path}")
+    logger.info(f"密钥路径: {key_path}")
+    
     # Create HTML file if it doesn't exist
     html_file = static_dir / 'index.html'
     if not html_file.exists():
@@ -121,9 +147,20 @@ def create_app():
         """)
     
     # Initialize proxy server
-    logger.info("Initializing proxy server...")
+    logger.info("初始化代理服务器...")
     proxy_server = ProxyServer(str(app_dir / 'config.json'))
-    logger.info(f"Proxy server initialized on port {proxy_server.config.get('port', 8080)}")
+    
+    # Update config with certificate paths if needed
+    https_config = proxy_server.config.get('https', {})
+    if https_config.get('auto_generate', True) and not https_config.get('cert_path'):
+        logger.info("自动配置 HTTPS 证书...")
+        https_config['cert_path'] = cert_path
+        https_config['key_path'] = key_path
+        https_config['enabled'] = True
+        proxy_server.config['https'] = https_config
+        proxy_server.save_config(proxy_server.config)
+    
+    logger.info(f"代理服务器初始化完成，端口 {proxy_server.config.get('port', 8080)}")
     
     # Create API
     api = AppAPI(proxy_server)

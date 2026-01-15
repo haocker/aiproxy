@@ -2,4 +2,4 @@ flask==3.0.0
 flask-cors==4.0.0
 requests==2.31.0
 pywebview==5.0.0
-urllib3==2.1.0
+urllib3==2.1.0cryptography==41.0.5

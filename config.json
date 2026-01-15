@@ -4,10 +4,7 @@
     "api.local": "api.example.com"
   },
   "https": {
-    "enabled": false,
-    "cert_path": "",
-    "key_path": ""
-  },
-  "port": 8080,
-  "log_level": "INFO"
-}
+    "enabled": true,
+    "cert_path": ".certs/cert.pem",
+    "key_path": ".certs/key.pem",
+    "auto_generate": true
