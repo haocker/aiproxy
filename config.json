@@ -1,10 +1,13 @@
 {
   "proxy_rules": {
-    "example.local": "example.com",
-    "api.local": "api.example.com"
+    "www.aardio.com": "www.achui.cn"
   },
   "https": {
     "enabled": true,
-    "cert_path": ".certs/cert.pem",
-    "key_path": ".certs/key.pem",
+    "cert_path": ".certs\\cert.pem",
+    "key_path": ".certs\\key.pem",
     "auto_generate": true
+  },
+  "port": 28479,
+  "log_level": "INFO"
+}
